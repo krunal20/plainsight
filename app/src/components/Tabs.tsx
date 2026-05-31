@@ -1,10 +1,17 @@
 /**
  * Tabs — navigation for Overview / Vendors / Compare / What Changed / Ask.
- * Only Overview is functional now; others render a placeholder.
+ * Overview renders the children prop; other tabs render their respective views.
  */
 import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';
 import type { AppState } from '../state/storeTypes';
+import { lazy, Suspense } from 'react';
+
+// Lazy-load the advanced tab views to keep the initial bundle small
+const CompareView  = lazy(() => import('./CompareViewWrapper'));
+const MoversView   = lazy(() => import('./MoversViewWrapper'));
+const VendorTabView = lazy(() => import('./VendorTabView'));
+const ReportView   = lazy(() => import('./ReportViewWrapper'));
 
 const TAB_DEFS: { id: AppState['activeTab']; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -96,46 +103,46 @@ export function Tabs({ children }: TabsProps) {
         role="tabpanel"
         style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
       >
-        {activeTab === 'overview' ? (
-          children
-        ) : (
-          <ComingSoon />
+        {activeTab === 'overview' && children}
+        {activeTab === 'compare'  && (
+          <Suspense fallback={<TabLoading />}>
+            <CompareView />
+          </Suspense>
+        )}
+        {activeTab === 'changed'  && (
+          <Suspense fallback={<TabLoading />}>
+            <MoversView />
+          </Suspense>
+        )}
+        {activeTab === 'vendors'  && (
+          <Suspense fallback={<TabLoading />}>
+            <VendorTabView />
+          </Suspense>
+        )}
+        {activeTab === 'ask'      && (
+          <Suspense fallback={<TabLoading />}>
+            <ReportView />
+          </Suspense>
         )}
       </div>
     </div>
   );
 }
 
-function ComingSoon() {
+function TabLoading() {
   return (
     <div
       style={{
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 80,
-        gap: 12,
+        fontFamily: tokens.fontSans,
+        fontSize: 13,
+        color: tokens.muted,
       }}
     >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          background: tokens.line,
-          borderRadius: 8,
-        }}
-      />
-      <p
-        style={{
-          fontFamily: tokens.fontSans,
-          fontSize: 15,
-          color: tokens.muted,
-          margin: 0,
-        }}
-      >
-        Coming soon — this view is being built in a later workstream.
-      </p>
+      Loading…
     </div>
   );
 }

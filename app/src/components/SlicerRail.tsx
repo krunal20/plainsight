@@ -8,6 +8,7 @@ import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';
 import { loadDimensions } from '../lib/loadCube';
 import type { Dimensions, DimItem } from '../../contracts';
+import { VendorSearch } from './VendorSearch';
 
 // ── Small section header ─────────────────────────────────────────────────────
 
@@ -232,6 +233,9 @@ export function SlicerRail() {
         onChange={val => update('subcategory', val)}
         maxHeight={120}
       />
+
+      <SectionLabel>Vendor</SectionLabel>
+      <VendorSearch />
 
       <SectionLabel>Top N</SectionLabel>
       <TopNControl />

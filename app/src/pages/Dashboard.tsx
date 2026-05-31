@@ -1,6 +1,7 @@
 /**
  * Dashboard — Overview tab: 4 charts driven by cubeReader + store filters.
  * Charts: composition treemap, top agencies bar, top vendors bar, monthly trend line.
+ * WS7: includes Breadcrumb for drill navigation and MeasureSelector.
  */
 import { useEffect, useState, useCallback } from 'react';
 import type { Cube, QuerySpec } from '../../contracts';
@@ -10,6 +11,8 @@ import { useStore } from '../state/store';
 import { Treemap } from '../components/charts/Treemap';
 import { Bar } from '../components/charts/Bar';
 import { Line } from '../components/charts/Line';
+import { Breadcrumb } from '../components/Breadcrumb';
+import { MeasureSelector } from '../components/MeasureSelector';
 import { tokens } from '../theme/tokens';
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
@@ -211,10 +214,12 @@ export function Dashboard() {
   const [cube, setCube] = useState<Cube | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const filters = useStore(s => s.filters);
-  const netGross = useStore(s => s.netGross);
-  const topN = useStore(s => s.topN);
+  const filters        = useStore(s => s.filters);
+  const netGross       = useStore(s => s.netGross);
+  const topN           = useStore(s => s.topN);
+  const measure        = useStore(s => s.measure);
   const applySelection = useStore(s => s.applySelection);
+  const drillTo        = useStore(s => s.drillTo);
 
   useEffect(() => {
     loadCube()
@@ -227,9 +232,11 @@ export function Dashboard() {
 
   const handleSelect = useCallback(
     (sel: { dimension: import('../../contracts').Dimension; value: string }) => {
+      // Cross-filter: update filters AND push to drillPath for breadcrumb
       applySelection(sel);
+      drillTo(sel);
     },
-    [applySelection]
+    [applySelection, drillTo]
   );
 
   if (error) {
@@ -260,11 +267,18 @@ export function Dashboard() {
 
   const baseFilters = { ...filters };
 
+  // Map store.measure to a cube-compatible agg (avg/distinct_count route via /api/query)
+  // For cube-compatible measures use them directly; for others fall back to 'sum'
+  const cubeAgg: 'sum' | 'share' | 'yoy_delta' =
+    measure === 'share' ? 'share' :
+    measure === 'yoy_delta' ? 'yoy_delta' :
+    'sum';
+
   // 1) Composition treemap — category breakdown
   const treemapSpec: QuerySpec = {
     intent: 'breakdown',
     measure: 'amount',
-    agg: 'sum',
+    agg: cubeAgg,
     netGross,
     filters: baseFilters,
     groupBy: 'category',
@@ -278,7 +292,7 @@ export function Dashboard() {
   const agencySpec: QuerySpec = {
     intent: 'rank',
     measure: 'amount',
-    agg: 'sum',
+    agg: cubeAgg,
     netGross,
     filters: baseFilters,
     groupBy: 'agency',
@@ -294,46 +308,68 @@ export function Dashboard() {
   // 4) Monthly trend line
   const trendResult = buildMonthlyTrendResult(cube, netGross, baseFilters);
 
+  const measureLabel = measure === 'share' ? 'share (%)' : measure === 'yoy_delta' ? 'YoY delta' : netGross + ' spend';
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 16,
-        padding: 24,
-      }}
-    >
-      <ChartCard>
-        <Treemap
-          result={treemapResult}
-          subtitle="Spend by category — how is the budget composed?"
-          onSelect={handleSelect}
-        />
-      </ChartCard>
+    <div>
+      {/* Breadcrumb for drill-path navigation */}
+      <Breadcrumb />
 
-      <ChartCard>
-        <Bar
-          result={agencyResult}
-          subtitle={`Top ${topN} agencies by ${netGross} spend`}
-          onSelect={handleSelect}
-        />
-      </ChartCard>
+      {/* Measure selector toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '10px 24px',
+          gap: 16,
+          borderBottom: `1px solid ${tokens.line}`,
+          background: tokens.paper,
+        }}
+      >
+        <MeasureSelector />
+      </div>
 
-      <ChartCard>
-        <Bar
-          result={vendorResult}
-          subtitle={`Top ${topN} vendors by ${netGross} spend (aggregated across agencies)`}
-          onSelect={handleSelect}
-        />
-      </ChartCard>
+      {/* Charts grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+          padding: 24,
+        }}
+      >
+        <ChartCard>
+          <Treemap
+            result={treemapResult}
+            subtitle={`Spend by category — ${measureLabel}`}
+            onSelect={handleSelect}
+          />
+        </ChartCard>
 
-      <ChartCard>
-        <Line
-          result={trendResult}
-          subtitle="Monthly spend trend — FY22 vs FY23"
-          onSelect={handleSelect}
-        />
-      </ChartCard>
+        <ChartCard>
+          <Bar
+            result={agencyResult}
+            subtitle={`Top ${topN} agencies by ${measureLabel}`}
+            onSelect={handleSelect}
+          />
+        </ChartCard>
+
+        <ChartCard>
+          <Bar
+            result={vendorResult}
+            subtitle={`Top ${topN} vendors by ${netGross} spend (aggregated across agencies)`}
+            onSelect={handleSelect}
+          />
+        </ChartCard>
+
+        <ChartCard>
+          <Line
+            result={trendResult}
+            subtitle="Monthly spend trend — FY22 vs FY23"
+            onSelect={handleSelect}
+          />
+        </ChartCard>
+      </div>
     </div>
   );
 }

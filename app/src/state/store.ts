@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import type { AppState, AppFilters, Store } from './storeTypes';
-import type { Dimension } from '../../contracts';
+import type { Dimension, AskResponse } from '../../contracts';
 
 // ---------------------------------------------------------------------------
 // Default state
@@ -18,6 +18,7 @@ const DEFAULT_STATE: AppState = {
   drillPath: [],
   compare: undefined,
   activeTab: 'overview',
+  askResult: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +108,7 @@ function pickAppState(s: Store): AppState {
     drillPath: s.drillPath,
     compare: s.compare,
     activeTab: s.activeTab,
+    askResult: s.askResult,
   };
 }
 
@@ -226,8 +228,17 @@ export const useStore = create<Store>((set, get) => ({
     });
   },
 
-  // Active tab setter (not in storeTypes but useful for routing)
-  // Exposed via setFilters-style update
+  setAskResult: (result: AskResponse | null) => {
+    set(s => ({ ...s, askResult: result }));
+  },
+
+  setActiveTab: (tab: AppState['activeTab']) => {
+    set(s => {
+      const next = { ...s, activeTab: tab };
+      writeToHash(pickAppState(next));
+      return next;
+    });
+  },
 }));
 
 // ---------------------------------------------------------------------------

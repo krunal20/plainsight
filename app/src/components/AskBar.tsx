@@ -1,14 +1,19 @@
 /**
  * AskBar — text input with "ASK" label and ⌘K hint.
- * Submits to /api/ask; for now surfaces the result via console + future /report route.
+ * Submits to /api/ask and routes the result to the Report view via the store.
  */
 import { useState, useRef, useEffect } from 'react';
 import { tokens } from '../theme/tokens';
+import { useStore } from '../state/store';
+import type { AskResponse } from '../../../contracts';
 
 export function AskBar() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const setAskResult  = useStore(s => s.setAskResult);
+  const setActiveTab  = useStore(s => s.setActiveTab);
 
   // ⌘K / Ctrl+K global shortcut
   useEffect(() => {
@@ -33,12 +38,12 @@ export function AskBar() {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ text: q }),
       });
-      const data = await res.json();
-      // WS7 will route this to the Report view
-      console.info('[AskBar] /api/ask response:', data);
-      // Placeholder: could navigate to /report in future
+      const data = (await res.json()) as AskResponse;
+      // Route result to Report view via store
+      setAskResult(data);
+      setActiveTab('ask');
     } catch (err) {
       console.error('[AskBar] error:', err);
     } finally {
