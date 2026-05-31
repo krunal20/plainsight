@@ -1,0 +1,30 @@
+{
+  "cells": [
+    { "agency": "DSHS", "category": "Professional Services", "subcategory": "Consulting", "month": 3, "fy": 2022, "net": 1245000, "gross": 1300000 },
+    { "agency": "DSHS", "category": "Professional Services", "subcategory": "Consulting", "month": 9, "fy": 2023, "net": 1580000, "gross": 1640000 },
+    { "agency": "DSHS", "category": "IT", "subcategory": "Software Licenses", "month": 6, "fy": 2022, "net": 875000, "gross": 910000 },
+    { "agency": "DOT", "category": "Professional Services", "subcategory": "Consulting", "month": 4, "fy": 2022, "net": 2100000, "gross": 2200000 },
+    { "agency": "DOT", "category": "IT", "subcategory": "Software Licenses", "month": 7, "fy": 2023, "net": 640000, "gross": 670000 },
+    { "agency": "DOT", "category": "IT", "subcategory": "Software Licenses", "month": 11, "fy": 2023, "net": 720000, "gross": 750000 }
+  ],
+  "vendorsByAgency": {
+    "DSHS": [
+      { "vendorId": "microsoft-corp", "name": "MICROSOFT CORP", "net": 480000, "gross": 500000 },
+      { "vendorId": "deloitte-consulting", "name": "DELOITTE CONSULTING LLP", "net": 370000, "gross": 390000 },
+      { "vendorId": "lam-doris", "name": "LAM DORIS", "net": 95000, "gross": 98000 }
+    ],
+    "DOT": [
+      { "vendorId": "microsoft-corp", "name": "MICROSOFT CORP", "net": 310000, "gross": 325000 },
+      { "vendorId": "lam-research", "name": "LAM RESEARCH", "net": 275000, "gross": 285000 },
+      { "vendorId": "accenture-llp", "name": "ACCENTURE LLP", "net": 620000, "gross": 650000 }
+    ]
+  },
+  "totals": {
+    "net": 7160000,
+    "gross": 7470000,
+    "byFy": {
+      "2022": { "net": 4220000, "gross": 4410000 },
+      "2023": { "net": 2940000, "gross": 3060000 }
+    }
+  }
+}

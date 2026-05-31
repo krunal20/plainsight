@@ -1,0 +1,78 @@
+[
+  {
+    "traceId": "trace-001",
+    "ts": "2024-03-15T10:23:45.123Z",
+    "step": "compile",
+    "userAction": "top agencies by net spend last year",
+    "input": {
+      "rawText": "top agencies by net spend last year",
+      "systemPromptHash": "sha256-a1b2c3d4",
+      "contextPayload": { "activeFy": 2023 }
+    },
+    "model": "gemini-2.0-flash",
+    "params": { "temperature": 0, "maxOutputTokens": 1024 },
+    "output": {
+      "intent": "rank",
+      "measure": "amount",
+      "agg": "sum",
+      "netGross": "net",
+      "filters": { "fy": [2023] },
+      "groupBy": "agency",
+      "sort": { "by": "measure", "dir": "desc" },
+      "topN": 10,
+      "chart": "bar"
+    },
+    "validation": { "ok": true, "errors": [] },
+    "tokens": { "input": 412, "output": 88 },
+    "costUsd": 0.0002,
+    "latencyMs": 834,
+    "cached": false
+  },
+  {
+    "traceId": "trace-001",
+    "ts": "2024-03-15T10:23:45.987Z",
+    "step": "compute",
+    "userAction": "top agencies by net spend last year",
+    "input": {
+      "contextPayload": {
+        "spec": {
+          "intent": "rank",
+          "measure": "amount",
+          "agg": "sum",
+          "netGross": "net",
+          "filters": { "fy": [2023] },
+          "groupBy": "agency",
+          "chart": "bar"
+        }
+      }
+    },
+    "output": {
+      "rowCount": 2,
+      "totalNet": 7160000
+    },
+    "latencyMs": 42,
+    "cached": false
+  },
+  {
+    "traceId": "trace-001",
+    "ts": "2024-03-15T10:23:46.512Z",
+    "step": "narrate",
+    "userAction": "top agencies by net spend last year",
+    "input": {
+      "contextPayload": {
+        "rowCount": 2,
+        "topLabel": "DOT",
+        "topValue": 4460000
+      }
+    },
+    "model": "gemini-2.0-flash",
+    "params": { "temperature": 0.2, "maxOutputTokens": 256 },
+    "output": {
+      "interpretation": "DOT led all agencies with $4.46M in net spend during FY 2023, accounting for 62% of the total."
+    },
+    "tokens": { "input": 320, "output": 62 },
+    "costUsd": 0.00015,
+    "latencyMs": 620,
+    "cached": false
+  }
+]

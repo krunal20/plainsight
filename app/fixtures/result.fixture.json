@@ -1,0 +1,29 @@
+{
+  "rows": [
+    { "label": "DSHS", "value": 2700000 },
+    { "label": "DOT", "value": 4460000 }
+  ],
+  "columns": [
+    { "key": "label", "label": "Agency", "type": "string" },
+    { "key": "value", "label": "Net Spend", "type": "currency" }
+  ],
+  "meta": {
+    "totalNet": 7160000,
+    "totalGross": 7470000,
+    "rowCount": 2,
+    "truncated": false
+  },
+  "spec": {
+    "intent": "rank",
+    "measure": "amount",
+    "agg": "sum",
+    "netGross": "net",
+    "filters": {},
+    "groupBy": "agency",
+    "sort": { "by": "measure", "dir": "desc" },
+    "topN": 10,
+    "chart": "bar"
+  },
+  "sql": "SELECT agency, SUM(net) AS value FROM cube GROUP BY agency ORDER BY value DESC LIMIT 10",
+  "traceId": "fixture-001"
+}

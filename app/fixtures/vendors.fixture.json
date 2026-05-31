@@ -1,0 +1,27 @@
+{
+  "microsoft-corp": {
+    "vendorId": "microsoft-corp",
+    "display": "MICROSOFT CORP",
+    "aliases": ["microsoft", "microsoft corp", "microsoft corporation", "msft"]
+  },
+  "deloitte-consulting": {
+    "vendorId": "deloitte-consulting",
+    "display": "DELOITTE CONSULTING LLP",
+    "aliases": ["deloitte", "deloitte consulting", "deloitte consulting llp"]
+  },
+  "accenture-llp": {
+    "vendorId": "accenture-llp",
+    "display": "ACCENTURE LLP",
+    "aliases": ["accenture", "accenture llp", "accenture federal services"]
+  },
+  "lam-doris": {
+    "vendorId": "lam-doris",
+    "display": "LAM DORIS",
+    "aliases": ["lam doris", "lam, doris", "lam d"]
+  },
+  "lam-research": {
+    "vendorId": "lam-research",
+    "display": "LAM RESEARCH",
+    "aliases": ["lam research", "lam research corp", "lam research corporation"]
+  }
+}

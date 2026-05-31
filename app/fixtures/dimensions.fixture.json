@@ -1,0 +1,14 @@
+{
+  "agency": [
+    { "id": "DSHS", "label": "Department of Social and Health Services", "gloss": "Largest WA agency by spend; administers Medicaid and social services." },
+    { "id": "DOT", "label": "Department of Transportation", "gloss": "Manages state highways, ferries, and transit programs." }
+  ],
+  "category": [
+    { "id": "professional-services", "label": "Professional Services", "gloss": "Consulting, legal, and advisory engagements." },
+    { "id": "it", "label": "IT", "gloss": "Information technology hardware, software, and services." }
+  ],
+  "subcategory": [
+    { "id": "consulting", "label": "Consulting", "gloss": "Management and strategy consulting engagements." },
+    { "id": "software-licenses", "label": "Software Licenses", "gloss": "Annual and perpetual software license fees." }
+  ]
+}
