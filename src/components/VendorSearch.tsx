@@ -5,13 +5,30 @@
  *
  * vendors.json is SERVER-ONLY — this component never imports it directly.
  */
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';
+import { loadCube } from '../lib/loadCube';
 
 interface VendorMatch {
   vendorId: string;
   display: string;
+}
+
+// Client-side vendor index built once from the cube's per-agency top-vendor lists
+// (no /api dependency). Dedupes by vendorId across agencies.
+let _vendorIndex: VendorMatch[] | null = null;
+async function getVendorIndex(): Promise<VendorMatch[]> {
+  if (_vendorIndex) return _vendorIndex;
+  const cube = await loadCube();
+  const seen = new Map<string, string>();
+  for (const list of Object.values(cube.vendorsByAgency ?? {})) {
+    for (const v of list) {
+      if (!seen.has(v.vendorId)) seen.set(v.vendorId, v.name);
+    }
+  }
+  _vendorIndex = Array.from(seen, ([vendorId, display]) => ({ vendorId, display }));
+  return _vendorIndex;
 }
 
 export function VendorSearch() {
@@ -26,18 +43,16 @@ export function VendorSearch() {
 
   const search = useCallback(
     async (q: string) => {
-      if (!q.trim()) {
-        setMatches([]);
-        setOpen(false);
-        return;
-      }
-
       setLoading(true);
       try {
-        const res = await fetch(`/api/vendor-search?q=${encodeURIComponent(q)}`);
-        if (!res.ok) throw new Error('Search failed');
-        const data = (await res.json()) as { matches: VendorMatch[] };
-        setMatches(data.matches ?? []);
+        const index = await getVendorIndex();
+        const ql = q.trim().toLowerCase();
+        // Empty query → show a starter list so users can pick without typing.
+        const hits = (ql
+          ? index.filter(v => v.display.toLowerCase().includes(ql))
+          : index
+        ).slice(0, 20);
+        setMatches(hits);
         setOpen(true);
       } catch {
         setMatches([]);
@@ -47,6 +62,9 @@ export function VendorSearch() {
     },
     []
   );
+
+  // Warm the vendor index on mount so the first keystroke is instant.
+  useEffect(() => { void getVendorIndex(); }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
@@ -90,7 +108,7 @@ export function VendorSearch() {
           aria-label="Search vendors"
           value={query}
           onChange={handleChange}
-          onFocus={() => { if (matches.length) setOpen(true); }}
+          onFocus={() => { void search(query); }}
           onBlur={() => { setTimeout(() => setOpen(false), 150); }}
           placeholder="Search vendor…"
           style={{

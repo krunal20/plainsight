@@ -34,21 +34,34 @@ export async function runQuery(spec: QuerySpec, opts: RunQueryOptions): Promise<
   }
 
   // ── Engine path (fetch) ──────────────────────────────────────────────────
-  const response = await fetch('/api/query', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ spec, ...(traceId ? { traceId } : {}) }),
+  // Never throw a raw "invalid JSON" at the UI: if the serverless function is
+  // unavailable, degrade to a graceful empty result the charts render cleanly.
+  const emptyResult = (): QueryResult => ({
+    rows: [],
+    columns: [],
+    meta: { totalNet: 0, totalGross: 0, rowCount: 0, truncated: false, emptyReason: 'no_match' },
+    spec,
+    sql: '',
+    traceId: traceId ?? '',
   });
 
-  const data = (await response.json()) as QueryResult;
+  try {
+    const response = await fetch('/api/query', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ spec, ...(traceId ? { traceId } : {}) }),
+    });
+    if (!response.ok) return emptyResult();
 
-  // Ensure emptyReason is set when no rows
-  if (data.rows.length === 0 && !data.meta.emptyReason) {
-    return {
-      ...data,
-      meta: { ...data.meta, emptyReason: 'no_match' },
-    };
+    const data = (await response.json()) as QueryResult;
+    if (!data || !Array.isArray(data.rows)) return emptyResult();
+
+    // Ensure emptyReason is set when no rows
+    if (data.rows.length === 0 && !data.meta?.emptyReason) {
+      return { ...data, meta: { ...data.meta, emptyReason: 'no_match' } };
+    }
+    return data;
+  } catch {
+    return emptyResult();
   }
-
-  return data;
 }
