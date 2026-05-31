@@ -25,8 +25,10 @@
 
 ## File structure (decomposition)
 
+> **Repo layout:** the git repo is the workspace root (already `git init`'d). The app lives in **`app/`** (Vercel "Root Directory"); `docs/` stays at the repo root. All paths below are relative to `app/` unless noted.
+
 ```
-plainsight/
+app/                         # Vercel Root Directory
   contracts/                 # FROZEN in Phase A — the shared types every workstream imports
     index.ts                 # QuerySpec, QueryResult, ValidationError, AskResponse, ChartProps, AIEvent, Cube, Dimensions, Dimension/Measure/Agg
   fixtures/
@@ -86,8 +88,8 @@ plainsight/
 - [ ] **Step 1: Scaffold + deps**
 
 ```bash
-npm create vite@latest plainsight -- --template react-ts
-cd plainsight
+npm create vite@latest app -- --template react-ts   # scaffold INTO app/ (repo root already has git + .gitignore)
+cd app
 npm i echarts zod @tanstack/react-table @tanstack/react-virtual zustand @google/genai
 npm i @duckdb/node-api          # /api/query executor (native; see Spike S2 + vercel.json includeFiles)
 npm i -D vitest @testing-library/react jsdom @playwright/test vite-plugin-singlefile tailwindcss postcss autoprefixer tsx cross-env unzipper sax @types/unzipper @types/sax
@@ -125,13 +127,14 @@ export default defineConfig({
 }
 ```
 
-- [ ] **Step 4: hash router + `.env.example` + tsconfig** — use `HashRouter` (or a tiny hash-state router) in `App.tsx`; `.env.example` contains `GEMINI_API_KEY=`. Add `"types": ["vitest/globals", "node"]` to `tsconfig.json` `compilerOptions` (else `it/expect` error). Add `.gitignore`: `node_modules`, `dist`, `dist-offline`, `public/data/*` (keep `public/data/.gitkeep`), `.env`.
+- [ ] **Step 4: hash router + `.env.example` + tsconfig** — use `HashRouter` (or a tiny hash-state router) in `App.tsx`; `.env.example` contains `GEMINI_API_KEY=`. Add `"types": ["vitest/globals", "node"]` to `tsconfig.json` `compilerOptions` (else `it/expect` error). The repo-root `.gitignore` already ignores `node_modules`, `dist`, `dist-offline`, `.env`, and the source `*.xlsx` — **but `app/public/data/*` IS committed** (the generated cube/dims/vendors/parquet, a few MB) so Vercel builds with no xlsx.
 
 - [ ] **Step 5: Verify + commit**
 
 Run: `npm run build` → Expected: succeeds, emits `dist/` with relative `./assets/...` paths.
 ```bash
-git init && git add -A && git commit -m "chore: scaffold Vite React TS + offline single-file target"
+# repo already initialized at the workspace root — just stage + commit from there
+git add -A && git commit -m "chore: scaffold Vite React TS app in app/ (offline single-file target)"
 ```
 
 ---
@@ -467,8 +470,8 @@ Acceptance: clicking filters everything; measure selector changes encodings; Ask
 **Files:** `src/offline/{cachedAnswers,inlineData}.ts`, `scripts/build-offline-data.ts`.
 - [ ] Generate `src/offline/cube.inline.ts` (cube as a TS object) and `cachedAnswers.ts` (run ~8 curated questions through `/api/ask` once, capture each `AskResponse` + its real `AIEvent`s, write them inlined with `cached:true`). The app, when `import.meta.env.BUILD_TARGET==='offline'`, sources data from inline modules and routes `/api/ask` to `cachedAnswers` (cache-miss → "enter a key for live answers" state), `/api/query` → client `cubeReader`. Commit.
 
-### Task C2: `vercel.json` + deploy
-- [ ] `vercel.json`: `api/*` on the **Node runtime** (not Edge — native duckdb), `includeFiles` for the duckdb native binary + `public/data/facts.parquet`; `GEMINI_API_KEY` in Vercel project env. (Two files in `api/` = two functions — fine on Hobby; the spec's "one function" intent is satisfied logically by the shared contracts.) `npm run build` → deploy. Verify hosted URL: dashboard loads, Ask works live, glass box logs server-side.
+### Task C2: `vercel.json` config
+- [ ] `vercel.json`: `api/*` on the **Node runtime** (not Edge — native duckdb), `includeFiles` for the duckdb native binary + `public/data/facts.parquet`. (Two files in `api/` = two functions — fine on Hobby.) Build command `npm run build` (data is committed; no xlsx needed). Actual GitHub linking + auto-deploy = **Phase D**.
 
 ### Task C3: Offline artifact
 - [ ] `npm run build:data && npm run build:offline` → produces `dist-offline/index.html`; rename to `plainsight-offline.html`. **Verify by double-clicking from the file manager** (file://): dashboard renders, cached Ask answers work, no console CORS/module errors. Commit the artifact + a checksum.
@@ -483,6 +486,35 @@ Acceptance: clicking filters everything; measure selector changes encodings; Ask
 - [ ] Run the **`code-review`** skill on the full diff; fix findings.
 - [ ] Dispatch **independent review agents** (3+) over the integrated build (correctness of the trust spine, the offline double-click, accessibility, demo-path robustness); iterate until findings are minor.
 - [ ] Only then record the final video.
+
+---
+
+## PHASE D — GitHub + Vercel auto-deploy (free / Hobby; every push redeploys)
+
+**Prereqs (already done):** git repo at the workspace root; `gh` authenticated (account `brand-me-now-ai`); Vercel MCP connected. App in `app/`; generated `app/public/data/*` committed; source `*.xlsx` gitignored.
+
+### Task D1: Push to GitHub
+- [ ] Create the remote and push (public repo = free, and lets the grader read the code):
+```bash
+gh repo create plainsight --public --source=. --remote=origin --push
+```
+Expected: `brand-me-now-ai/plainsight` created; `main` pushed.
+
+### Task D2: Link Vercel → GitHub (auto-deploy on push)
+- [ ] Connect via the **Vercel MCP** (`list_projects`/`deploy_to_vercel`) and/or `vercel link` + `vercel git connect` (dashboard "Import Git Repository" is the fallback). Configure the project:
+  - **Root Directory:** `app` · **Framework:** Vite · **Build:** `npm run build` · **Output:** `dist`
+  - **Functions:** Node runtime; `vercel.json` `includeFiles` (duckdb binary + `public/data/facts.parquet`)
+  - **Env var:** `GEMINI_API_KEY` for **Production + Preview**
+- [ ] Git integration default behavior to confirm: **push to `main` → production deploy; any branch/PR → preview deploy.**
+- [ ] Verify: push a trivial commit → a deploy auto-starts → hosted URL serves the dashboard, Ask works live, glass box logs server-side.
+
+### Task D3: Free-tier guardrails (confirm $0)
+- [ ] **Vercel Hobby (free):** confirm the `/api` function bundle (incl. `@duckdb/node-api` native binary + parquet) is under the Hobby **250 MB uncompressed** limit. *If over:* fall back to a pure-JS parquet reader (`hyparquet`) + JS aggregation, or push more pre-aggregation into the cube so `/api/query` is rarely hit.
+- [ ] **Gemini:** free-tier key, no billing enabled. **GitHub:** public repo, free. **No other paid services.**
+- [ ] **Grader's offline path:** attach `plainsight-offline.html` (Task C3) to a **GitHub Release** and link it in the README — download + double-click, zero install.
+
+### Task D4: README deploy section
+- [ ] Document: the live URL; "download the offline HTML from Releases and double-click"; "every push to `main` auto-deploys via Vercel's GitHub integration"; the $0 cost note.
 
 ---
 
