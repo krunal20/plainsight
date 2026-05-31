@@ -10,5 +10,36 @@ export default defineConfig({
     outDir: offline ? 'dist-offline' : 'dist',
     ...(offline ? { cssCodeSplit: false, assetsInlineLimit: 100_000_000 } : {}),
   },
-  test: { environment: 'jsdom', globals: true, pool: 'vmThreads' },
+  test: {
+    globals: true,
+    projects: [
+      {
+        // Browser/UI tests in jsdom (existing tests + src tests)
+        test: {
+          name: 'browser',
+          environment: 'jsdom',
+          pool: 'vmThreads',
+          globals: true,
+          include: [
+            'src/**/*.test.ts',
+            'src/**/*.test.tsx',
+            'contracts/**/*.test.ts',
+            'scripts/**/*.test.ts',
+          ],
+        },
+      },
+      {
+        // Node-only tests for DuckDB integration
+        test: {
+          name: 'node',
+          environment: 'node',
+          pool: 'forks',
+          globals: true,
+          include: [
+            'api/**/*.test.ts',
+          ],
+        },
+      },
+    ],
+  },
 });
