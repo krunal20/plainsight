@@ -28,7 +28,7 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { MeasureSelector } from '../components/MeasureSelector';
 import { Report } from '../pages/Report';
 import { AskBar } from '../components/AskBar';
-import type { AskResponse, QueryResult } from '../../../contracts';
+import type { AskResponse, QueryResult } from '../../contracts';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

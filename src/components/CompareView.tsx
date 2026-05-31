@@ -5,7 +5,7 @@
  * Uses two runQuery calls with separate filter sets.
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { Cube, QueryResult, QuerySpec } from '../../../contracts';
+import type { Cube, QueryResult, QuerySpec } from '../../contracts';
 import { runQuery } from '../lib/query/runQuery';
 import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';

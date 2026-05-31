@@ -7,7 +7,7 @@
  * - engineer toggle reveals raw JSON
  * - seeds events from fixture
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { GlassBox } from './GlassBox';
 import type { AIEvent, LogApi } from '../../contracts';

@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';
-import type { AskResponse } from '../../../contracts';
+import type { AskResponse } from '../../contracts';
 
 export function AskBar() {
   const [query, setQuery] = useState('');

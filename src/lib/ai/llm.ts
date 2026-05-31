@@ -52,7 +52,7 @@ export function geminiLLM(): LLM {
       // Lazy import to avoid bundling into the client
       const { GoogleGenAI } = await import('@google/genai');
       const key = process.env.GEMINI_API_KEY;
-      if (!key) throw new Error('GEMINI_API_KEY not set');
+      if (!key) throw new Error('GEMINI_API_KEY is not configured on this deployment');
       const ai = new GoogleGenAI({ apiKey: key });
 
       const allowedNames = functions.map(f => f.name);
@@ -73,7 +73,7 @@ export function geminiLLM(): LLM {
           ],
           toolConfig: {
             functionCallingConfig: {
-              mode: 'ANY' as const,
+              mode: 'ANY' as import('@google/genai').FunctionCallingConfigMode,
               allowedFunctionNames: allowedNames,
             },
           },
@@ -101,7 +101,7 @@ export function geminiLLM(): LLM {
     async complete(systemPrompt, userText) {
       const { GoogleGenAI } = await import('@google/genai');
       const key = process.env.GEMINI_API_KEY;
-      if (!key) throw new Error('GEMINI_API_KEY not set');
+      if (!key) throw new Error('GEMINI_API_KEY is not configured on this deployment');
       const ai = new GoogleGenAI({ apiKey: key });
 
       const response = await ai.models.generateContent({

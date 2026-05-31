@@ -99,7 +99,7 @@ function writeToHash(state: AppState): void {
 // Extract AppState portion from full Store
 // ---------------------------------------------------------------------------
 
-function pickAppState(s: Store): AppState {
+function pickAppState(s: AppState): AppState {
   return {
     filters: s.filters,
     measure: s.measure,
@@ -116,7 +116,7 @@ function pickAppState(s: Store): AppState {
 // Store
 // ---------------------------------------------------------------------------
 
-export const useStore = create<Store>((set, get) => ({
+export const useStore = create<Store>((set, _get) => ({
   // ── Initial state ──────────────────────────────────────────────────────
   ...loadFromHash(),
 

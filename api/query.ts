@@ -8,22 +8,10 @@
  * Also exports `runSqlQuery` as a testable pure-ish function.
  */
 
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
 import type { QuerySpec, QueryResult, ValidationError } from '../contracts';
 import { specToSql } from '../src/lib/query/specToSql';
 import { validateSpec } from '../src/lib/query/validateSpec';
-
-// ---------------------------------------------------------------------------
-// Resolve paths relative to this file
-// ---------------------------------------------------------------------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// facts.parquet lives at app/public/data/facts.parquet
-const PARQUET_PATH = resolve(__dirname, '..', 'public', 'data', 'facts.parquet');
-// dimensions.json for validateSpec
-const DIMS_PATH    = resolve(__dirname, '..', 'public', 'data', 'dimensions.json');
+import { dataFile } from './_dataPath';
 
 // ---------------------------------------------------------------------------
 // DuckDB singleton (module-level — reused across requests in the same process)
@@ -58,7 +46,10 @@ function toNumber(v: unknown): number {
  * This is the pure-ish core of the /api/query handler, exported for testing.
  */
 export async function runSqlQuery(spec: QuerySpec): Promise<QueryResult> {
-  const sql = specToSql(spec, `read_parquet('${PARQUET_PATH.replace(/\\/g, '/')}')`);
+  // Resolve parquet path robustly (fix #2: serverless fs paths).
+  // Use forward slashes so the DuckDB SQL string is portable (Windows paths break in SQL).
+  const pPath = dataFile('facts.parquet').replace(/\\/g, '/');
+  const sql = specToSql(spec, `read_parquet('${pPath}')`);
 
   const conn = await getConnection();
 
@@ -67,6 +58,7 @@ export async function runSqlQuery(spec: QuerySpec): Promise<QueryResult> {
   const raw = reader.getRowObjects();
 
   // --- convert BigInt → number, handle share queries (raw_value / window_total / value) ---
+  // Fix #3: DuckDB returns BigInt for COUNT/distinct_count; coerce all values.
   const isShare = spec.agg === 'share';
   const groupKey = spec.groupBy ?? null;
 
@@ -77,7 +69,6 @@ export async function runSqlQuery(spec: QuerySpec): Promise<QueryResult> {
   });
 
   // --- compute meta totals over the FILTERED data (same WHERE clause as the main query) ---
-  const pPath = PARQUET_PATH.replace(/\\/g, '/');
   // Re-use the same WHERE clause from the SQL by building a total query
   const filterSql = specToSql(
     // Scalar KPI spec with same filters → gives a single SUM(amount)
@@ -181,7 +172,7 @@ export default async function handler(req: Req, res: Res) {
 
   // Load dimensions for validation
   const { readFileSync } = await import('fs');
-  const dims = JSON.parse(readFileSync(DIMS_PATH, 'utf8'));
+  const dims = JSON.parse(readFileSync(dataFile('dimensions.json'), 'utf8'));
 
   // Validate spec
   const validation = validateSpec(body.spec, dims);

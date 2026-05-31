@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { loadCube } from '../lib/loadCube';
-import type { Cube } from '../../../contracts';
+import type { Cube } from '../../contracts';
 import { CompareView } from './CompareView';
 import { tokens } from '../theme/tokens';
 

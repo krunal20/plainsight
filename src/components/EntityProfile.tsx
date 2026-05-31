@@ -9,7 +9,7 @@
  * Reachable by drilling to a single entity or from the Vendors tab.
  */
 import { useState, useEffect } from 'react';
-import type { Cube, QueryResult } from '../../../contracts';
+import type { Cube, QueryResult } from '../../contracts';
 import { runQuery } from '../lib/query/runQuery';
 import { tokens } from '../theme/tokens';
 

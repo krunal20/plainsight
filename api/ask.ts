@@ -20,8 +20,6 @@
  * IMPORTANT: vendors.json is SERVER-ONLY — loaded with fs, never bundled into client.
  */
 
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
 import type { AskResponse, QuerySpec, LogApi } from '../contracts';
 import type { LLM } from '../src/lib/ai/llm';
 import { geminiLLM } from '../src/lib/ai/llm';
@@ -29,14 +27,7 @@ import { createLog } from '../src/lib/ai/log';
 import { compileSpec } from '../src/lib/ai/compileSpec';
 import { narrate } from '../src/lib/ai/narrate';
 import { runSqlQuery } from './query';
-
-// ---------------------------------------------------------------------------
-// Resolve paths
-// ---------------------------------------------------------------------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const DIMS_PATH    = resolve(__dirname, '..', 'public', 'data', 'dimensions.json');
-const VENDORS_PATH = resolve(__dirname, '..', 'public', 'data', 'vendors.json');
+import { dataFile } from './_dataPath';
 
 // ---------------------------------------------------------------------------
 // Deterministic interpretation of a QuerySpec
@@ -152,78 +143,93 @@ export function buildAskHandler(options: AskHandlerOptions = {}) {
     text: string;
     explain?: boolean;
   }): Promise<AskResponse> {
-    const traceId = `ask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const log = options.log ?? createLog();
-    const llm = options.llm ?? geminiLLM();
-
-    // Load dimensions SERVER-SIDE (synchronously via fs)
-    let dims: import('../contracts').Dimensions;
-    let vendorMap: Record<string, unknown>;
     try {
-      const { readFileSync } = await import('fs');
-      dims = JSON.parse(readFileSync(DIMS_PATH, 'utf8'));
-      vendorMap = JSON.parse(readFileSync(VENDORS_PATH, 'utf8'));
-    } catch {
-      // In test environment, use empty fallbacks
-      dims = { agency: [], category: [], subcategory: [] };
-      vendorMap = {};
+      const traceId = `ask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const log = options.log ?? createLog();
+      const llm = options.llm ?? geminiLLM();
+
+      // Load dimensions SERVER-SIDE (synchronously via fs)
+      let dims: import('../contracts').Dimensions;
+      let vendorMap: Record<string, unknown>;
+      try {
+        const { readFileSync } = await import('fs');
+        dims = JSON.parse(readFileSync(dataFile('dimensions.json'), 'utf8'));
+        vendorMap = JSON.parse(readFileSync(dataFile('vendors.json'), 'utf8'));
+      } catch {
+        // In test environment, use empty fallbacks
+        dims = { agency: [], category: [], subcategory: [] };
+        vendorMap = {};
+      }
+
+      // Log the start of the request
+      log.append({
+        traceId,
+        ts: new Date().toISOString(),
+        step: 'compile',
+        userAction: body.text,
+        input: { rawText: body.text },
+      });
+
+      // compileSpec → returns either a spec or an AskResponse (clarify/refuse)
+      const compileResult = await compileSpec(body.text, {
+        llm,
+        dims,
+        vendorMap: vendorMap as Parameters<typeof compileSpec>[1]['vendorMap'],
+        traceId,
+        log,
+      });
+
+      // If clarify or refuse, return directly
+      if (compileResult.kind === 'clarify' || compileResult.kind === 'refuse') {
+        return compileResult;
+      }
+
+      // kind === 'spec': run the query
+      const spec = compileResult.spec;
+
+      log.append({
+        traceId,
+        ts: new Date().toISOString(),
+        step: 'compute',
+        userAction: body.text,
+        input: { contextPayload: spec },
+      });
+
+      const result = await runSqlQuery(spec);
+      // Inject the shared traceId
+      (result as Record<string, unknown>).traceId = traceId;
+
+      // Optionally narrate (only if explain=1)
+      let interpretation: string;
+      if (body.explain) {
+        interpretation = await narrate(result, { llm, traceId, log });
+      } else {
+        interpretation = buildInterpretation(spec);
+      }
+
+      // Build deterministic followups
+      const followups = buildFollowups(spec);
+
+      return {
+        kind: 'spec',
+        result,
+        interpretation,
+        followups,
+      };
+    } catch (e: unknown) {
+      // Fix #4: graceful fallback when GEMINI_API_KEY is missing or any unhandled error occurs.
+      // Return a clarify response so the client renders a readable message instead of a 500.
+      const msg = e instanceof Error ? e.message : String(e);
+      const isKeyMissing = msg.includes('GEMINI_API_KEY');
+      return {
+        kind: 'clarify',
+        chips: [{
+          label: isKeyMissing
+            ? 'Live AI is not configured on this deployment — explore the dashboard, or set GEMINI_API_KEY.'
+            : `Ask is temporarily unavailable: ${msg}`,
+        }],
+      };
     }
-
-    // Log the start of the request
-    log.append({
-      traceId,
-      ts: new Date().toISOString(),
-      step: 'compile',
-      userAction: body.text,
-      input: { rawText: body.text },
-    });
-
-    // compileSpec → returns either a spec or an AskResponse (clarify/refuse)
-    const compileResult = await compileSpec(body.text, {
-      llm,
-      dims,
-      vendorMap: vendorMap as Parameters<typeof compileSpec>[1]['vendorMap'],
-      traceId,
-      log,
-    });
-
-    // If clarify or refuse, return directly
-    if (compileResult.kind === 'clarify' || compileResult.kind === 'refuse') {
-      return compileResult;
-    }
-
-    // kind === 'spec': run the query
-    const spec = compileResult.spec;
-
-    log.append({
-      traceId,
-      ts: new Date().toISOString(),
-      step: 'compute',
-      userAction: body.text,
-      input: { contextPayload: spec },
-    });
-
-    const result = await runSqlQuery(spec);
-    // Inject the shared traceId
-    (result as Record<string, unknown>).traceId = traceId;
-
-    // Optionally narrate (only if explain=1)
-    let interpretation: string;
-    if (body.explain) {
-      interpretation = await narrate(result, { llm, traceId, log });
-    } else {
-      interpretation = buildInterpretation(spec);
-    }
-
-    // Build deterministic followups
-    const followups = buildFollowups(spec);
-
-    return {
-      kind: 'spec',
-      result,
-      interpretation,
-      followups,
-    };
   };
 }
 

@@ -67,7 +67,7 @@ describe('specToSql – snapshot: share/category/net', () => {
       'SELECT category,\n' +
       '  SUM(amount) AS raw_value,\n' +
       '  SUM(SUM(amount)) OVER () AS window_total,\n' +
-      '  ROUND(SUM(amount) * 100.0 / SUM(SUM(amount)) OVER (), 4) AS value\n' +
+      '  COALESCE(ROUND(SUM(amount) * 100.0 / NULLIF(SUM(SUM(amount)) OVER (), 0), 4), 0) AS value\n' +
       'FROM facts\n' +
       'GROUP BY category\n' +
       'ORDER BY value DESC\n' +

@@ -4,11 +4,11 @@
  * Shows ranked risers/fallers as a diverging bar + table.
  */
 import { useState, useEffect } from 'react';
-import type { Cube, QueryResult } from '../../../contracts';
+import type { Cube, QueryResult } from '../../contracts';
 import { runQuery } from '../lib/query/runQuery';
 import { tokens } from '../theme/tokens';
 import { useStore } from '../state/store';
-import type { Dimension } from '../../../contracts';
+import type { Dimension } from '../../contracts';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 

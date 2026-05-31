@@ -224,4 +224,21 @@ describe('numberGuard', () => {
     expect(result.dropped).toHaveLength(2);
     expect(result.cleaned.trim()).toBe('');
   });
+
+  // ── Fix #6: zero-value grounding ───────────────────────────────────────────
+
+  it('passes "$0" narration when a row value is 0 (zero-value grounding)', () => {
+    const zeroResult: QueryResult = {
+      ...fixtureResult,
+      rows: [
+        { label: 'Agency X', value: 0 },
+        { label: 'Agency Y', value: 500000 },
+      ],
+      meta: { ...fixtureResult.meta, totalNet: 500000 },
+    };
+    const text = 'Agency X received $0 in net spend.';
+    const result = numberGuard(text, zeroResult);
+    expect(result.ok).toBe(true);
+    expect(result.dropped).toHaveLength(0);
+  });
 });

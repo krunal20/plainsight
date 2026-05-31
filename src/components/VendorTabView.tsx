@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../state/store';
 import { loadCube } from '../lib/loadCube';
-import type { Cube } from '../../../contracts';
+import type { Cube } from '../../contracts';
 import { EntityProfile } from './EntityProfile';
 import { tokens } from '../theme/tokens';
 

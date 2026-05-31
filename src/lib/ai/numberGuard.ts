@@ -87,8 +87,15 @@ function isIgnored(value: number, result: QueryResult): boolean {
   return false;
 }
 
+// Absolute epsilon for zero-value comparisons (1 cent for currency data).
+const ZERO_EPSILON = 0.01;
+
 /**
  * Check if a value is grounded: within ±1% of any row value or meta total.
+ *
+ * Fix #6: guard div-by-zero when candidate is 0.
+ * When the candidate (ground truth) is 0, use an absolute epsilon instead of
+ * a relative tolerance so that narrating "$0" for a $0 item is grounded.
  */
 function isGrounded(value: number, result: QueryResult): boolean {
   const candidates = [
@@ -98,10 +105,10 @@ function isGrounded(value: number, result: QueryResult): boolean {
   ];
 
   for (const candidate of candidates) {
-    if (candidate === 0 && value === 0) return true;
-    if (candidate !== 0 && Math.abs(value - candidate) / Math.abs(candidate) <= 0.01) {
-      return true;
-    }
+    const close = Math.abs(candidate) < ZERO_EPSILON
+      ? Math.abs(value - candidate) <= ZERO_EPSILON
+      : Math.abs(value - candidate) / Math.abs(candidate) <= 0.01;
+    if (close) return true;
   }
   return false;
 }

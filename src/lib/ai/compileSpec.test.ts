@@ -9,11 +9,12 @@
  * - Refuse script → returns refuse AskResponse
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { compileSpec } from './compileSpec';
 import { fakeLLM } from './llm';
 import { createLog } from './log';
-import type { QuerySpec, AskResponse } from '../../../contracts';
+import type { QuerySpec } from '../../../contracts';
+import type { CompileSpecResult } from './compileSpec';
 import dimensionsFixture from '../../../fixtures/dimensions.fixture.json';
 import vendorFixture from '../../../fixtures/vendors.fixture.json';
 
@@ -47,8 +48,8 @@ describe('compileSpec', () => {
     });
 
     expect(result.kind).toBe('spec');
-    if (result.kind === 'spec') {
-      expect(result.spec.intent).toBe('rank');
+    if (result.kind === 'spec' && 'spec' in result) {
+      expect((result as Extract<CompileSpecResult, { kind: 'spec'; spec: QuerySpec }>).spec.intent).toBe('rank');
     }
   });
 
@@ -200,6 +201,38 @@ describe('compileSpec', () => {
     if (result.kind === 'clarify') {
       expect(result.chips.length).toBeGreaterThan(0);
     }
+  });
+
+  // ── Fix #5: invalid enum twice → repair re-validates, returns clarify ───────
+
+  it('returns clarify (not a spec) when repair attempt also emits an invalid spec', async () => {
+    const invalidSpec = {
+      ...validSpec,
+      intent: 'INVALID_INTENT', // Not a valid intent
+    };
+    const alsoInvalidSpec = {
+      ...validSpec,
+      agg: 'INVALID_AGG', // repair is also invalid
+    };
+
+    const llm = fakeLLM([
+      // First attempt: invalid spec
+      { type: 'function', name: 'emit_query_spec', args: invalidSpec },
+      // Repair attempt: still invalid (different bad field)
+      { type: 'function', name: 'emit_query_spec', args: alsoInvalidSpec },
+    ]);
+    const log = createLog();
+
+    const result = await compileSpec('ambiguous query twice invalid', {
+      llm,
+      dims: dimensionsFixture,
+      vendorMap: vendorFixture,
+      traceId: 'test-repair-revalidate',
+      log,
+    });
+
+    // Must be clarify — never return an invalid spec
+    expect(result.kind).toBe('clarify');
   });
 
   // ── Vendor resolution ────────────────────────────────────────────────────────

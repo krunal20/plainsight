@@ -53,7 +53,8 @@ function aggregateByKey(
   key: CubeKey,
   netGross: 'net' | 'gross',
   agg: QuerySpec['agg'],
-  windowTotal: number
+  windowTotal: number,
+  mode?: QuerySpec['mode']
 ): Map<string, number> {
   const groups = new Map<string, number>();
   const counts = new Map<string, number>();
@@ -68,6 +69,7 @@ function aggregateByKey(
   if (agg === 'share') {
     const result = new Map<string, number>();
     for (const [label, sum] of groups) {
+      // Fix #7: guard div-by-zero — if windowTotal is 0, yield 0 share.
       result.set(label, windowTotal > 0 ? +((sum * 100) / windowTotal).toFixed(4) : 0);
     }
     return result;
@@ -94,7 +96,15 @@ function aggregateByKey(
     const allKeys = new Set([...fy22.keys(), ...fy23.keys()]);
     const result = new Map<string, number>();
     for (const label of allKeys) {
-      result.set(label, (fy23.get(label) ?? 0) - (fy22.get(label) ?? 0));
+      const v22 = fy22.get(label) ?? 0;
+      const v23 = fy23.get(label) ?? 0;
+      if (mode === 'pct') {
+        // Fix #7: guard div-by-zero — if FY2022 is 0, return 0 instead of Infinity.
+        const pct = v22 !== 0 ? +((v23 - v22) * 100 / v22).toFixed(4) : 0;
+        result.set(label, pct);
+      } else {
+        result.set(label, v23 - v22);
+      }
     }
     return result;
   }
@@ -177,7 +187,7 @@ export function cubeReader(spec: QuerySpec, cube: Cube, traceId?: string): Query
   // --- grouped aggregation ---
   const key = CUBE_KEY[spec.groupBy];
   const windowTotal = spec.netGross === 'gross' ? totalGross : totalNet;
-  const grouped = aggregateByKey(filtered, key, spec.netGross, spec.agg, windowTotal);
+  const grouped = aggregateByKey(filtered, key, spec.netGross, spec.agg, windowTotal, spec.mode);
 
   // --- build and sort rows ---
   let rows: { label: string; value: number }[] = Array.from(grouped.entries()).map(

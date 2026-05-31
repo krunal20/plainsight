@@ -154,4 +154,47 @@ describe('cubeReader', () => {
     const result = cubeReader(rankAgencySpec, cube);
     expect(result.spec).toEqual(rankAgencySpec);
   });
+
+  // ── Fix #7: yoy_delta pct mode with FY2022 = 0 ────────────────────────────
+
+  it('yoy_delta pct mode returns 0 (not Infinity) when FY2022 value is 0', () => {
+    // Build a synthetic cube where one agency has zero in FY2022
+    const syntheticCube: Cube = {
+      cells: [
+        // Agency A: only FY2023 data (FY2022 = 0 because absent)
+        { agency: 'AgencyA', category: 'IT', subcategory: 'Software', month: 3, fy: 2023, net: 500000, gross: 520000 },
+        // Agency B: both years
+        { agency: 'AgencyB', category: 'IT', subcategory: 'Software', month: 3, fy: 2022, net: 200000, gross: 210000 },
+        { agency: 'AgencyB', category: 'IT', subcategory: 'Software', month: 3, fy: 2023, net: 300000, gross: 315000 },
+      ],
+      vendorsByAgency: {},
+      totals: { net: 1000000, gross: 1045000, byFy: { '2022': { net: 200000, gross: 210000 }, '2023': { net: 800000, gross: 835000 } } },
+    };
+
+    const spec: QuerySpec = {
+      intent: 'compare',
+      measure: 'amount',
+      agg: 'yoy_delta',
+      mode: 'pct',
+      netGross: 'net',
+      filters: {},
+      groupBy: 'agency',
+      sort: { by: 'measure', dir: 'desc' },
+      topN: 10,
+      chart: 'bar',
+    };
+
+    const result = cubeReader(spec, syntheticCube);
+
+    // AgencyA: FY2022 = 0 → pct should be 0, NOT Infinity or NaN
+    const agencyARow = result.rows.find(r => r.label === 'AgencyA');
+    expect(agencyARow).toBeDefined();
+    expect(agencyARow!.value).toBe(0);
+    expect(Number.isFinite(agencyARow!.value)).toBe(true);
+
+    // AgencyB: (300000 - 200000) / 200000 * 100 = 50
+    const agencyBRow = result.rows.find(r => r.label === 'AgencyB');
+    expect(agencyBRow).toBeDefined();
+    expect(agencyBRow!.value).toBeCloseTo(50, 1);
+  });
 });

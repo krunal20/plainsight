@@ -118,10 +118,11 @@ export function specToSql(spec: QuerySpec, table = 'facts'): string {
     const orderClause = buildOrder(spec);
     const limitClause = spec.topN ? `LIMIT ${spec.topN}` : '';
 
+    // Fix #7: guard div-by-zero — if window_total is 0, yield 0 share instead of NULL/error.
     return [
       `SELECT ${selectDim}${agg} AS raw_value,`,
       `  ${windowTotal} AS window_total,`,
-      `  ROUND(${agg} * 100.0 / ${windowTotal}, 4) AS value`,
+      `  COALESCE(ROUND(${agg} * 100.0 / NULLIF(${windowTotal}, 0), 4), 0) AS value`,
       `FROM ${table}`,
       where,
       groupByClause,

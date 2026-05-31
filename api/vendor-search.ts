@@ -7,12 +7,7 @@
  * vendors.json is SERVER-ONLY — never imported on the client.
  */
 
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
-const VENDORS_PATH = resolve(__dirname, '..', 'public', 'data', 'vendors.json');
+import { dataFile } from './_dataPath';
 
 // Re-use the pure resolveVendor from WS5 (no I/O, works in both environments)
 export { resolveVendor } from '../src/lib/ai/resolveVendor';
@@ -50,7 +45,7 @@ export async function vendorSearchCore(
   } else {
     try {
       const { readFileSync } = await import('fs');
-      vendorMap = JSON.parse(readFileSync(VENDORS_PATH, 'utf8')) as VendorMap;
+      vendorMap = JSON.parse(readFileSync(dataFile('vendors.json'), 'utf8')) as VendorMap;
     } catch {
       return { matches: [] };
     }

@@ -9,7 +9,7 @@
  * AskBar routes its result here via store.askResult.
  */
 import { useState, useCallback } from 'react';
-import type { AskResponse, QuerySpec, QueryResult } from '../../../contracts';
+import type { AskResponse, QuerySpec, QueryResult } from '../../contracts';
 import { InterpretationChip } from '../components/InterpretationChip';
 import { ShowSql } from '../components/ShowSql';
 import { useStore } from '../state/store';
