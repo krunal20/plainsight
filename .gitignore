@@ -1,0 +1,23 @@
+# deps / build
+node_modules/
+app/node_modules/
+app/dist/
+app/dist-offline/
+
+# secrets
+.env
+.env.local
+app/.env
+app/.env.local
+.vercel/
+
+# challenge source data — kept LOCAL only (49MB); the small generated cube IS committed so Vercel needs no xlsx
+*.xlsx
+
+# brainstorming + tooling artifacts (not part of the submission)
+.superpowers/
+.playwright-mcp/
+*.jpeg
+*.png
+
+# NOTE: app/public/data/* (cube.json, dimensions.json, vendors.json, facts.parquet) IS committed on purpose
