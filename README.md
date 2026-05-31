@@ -1,7 +1,7 @@
 # Plainsight — WA Vendor Spending Explorer
 
 **Live URL:** *(TBD — Phase D Vercel deploy will fill this)*
-**Demo video:** [Watch the 3-minute walkthrough](docs/VIDEO.md) *(recording link TBD — Phase D)*
+
 
 ---
 

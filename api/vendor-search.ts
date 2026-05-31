@@ -8,9 +8,9 @@
  */
 
 import { dataFile } from './_dataPath';
-
-// Re-use the pure resolveVendor from WS5 (no I/O, works in both environments)
-export { resolveVendor } from '../src/lib/ai/resolveVendor';
+// NOTE: resolveVendor is imported DYNAMICALLY inside vendorSearchCore below.
+// A static import/re-export of this ESM module throws ERR_REQUIRE_ESM at load
+// (package.json "type":"module" + Vercel CJS compile) and crashes the function.
 import type { VendorMap } from '../src/lib/ai/resolveVendor';
 
 // ---------------------------------------------------------------------------

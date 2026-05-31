@@ -22,11 +22,20 @@
 
 import type { AskResponse, QuerySpec, LogApi } from '../contracts';
 import type { LLM } from '../src/lib/ai/llm';
-import { geminiLLM } from '../src/lib/ai/llm';
-import { createLog } from '../src/lib/ai/log';
-import { compileSpec } from '../src/lib/ai/compileSpec';
-import { narrate } from '../src/lib/ai/narrate';
 import { dataFile } from './_dataPath';
+
+// package.json has "type":"module"; Vercel compiles api/*.ts to CommonJS, so a
+// STATIC import of the ESM-compiled src/lib/*.js throws ERR_REQUIRE_ESM at load
+// and crashes the function. Load these ESM modules DYNAMICALLY at call time.
+async function _ai() {
+  const [{ geminiLLM }, { createLog }, { compileSpec }, { narrate }] = await Promise.all([
+    import('../src/lib/ai/llm'),
+    import('../src/lib/ai/log'),
+    import('../src/lib/ai/compileSpec'),
+    import('../src/lib/ai/narrate'),
+  ]);
+  return { geminiLLM, createLog, compileSpec, narrate };
+}
 
 // ---------------------------------------------------------------------------
 // Deterministic interpretation of a QuerySpec
