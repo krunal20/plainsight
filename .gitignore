@@ -9,3 +9,5 @@ dist-offline/
 .playwright-mcp/
 *.jpeg
 # NOTE: public/data/* (cube.json, dimensions.json, vendors.json, facts.parquet) IS committed on purpose
+
+.vercel
