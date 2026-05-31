@@ -65,7 +65,7 @@ export async function vendorSearchCore(
     .filter((c): c is { label: string; spec?: unknown } => Boolean(c.label))
     .map(c => {
       // Find the vendorId in the vendorMap by display name match
-      const entry = Object.values(vendorMap).find(
+      const entry = (Object.values(vendorMap) as Array<{ vendorId: string; display: string }>).find(
         v => v.display === c.label
       );
       return entry
