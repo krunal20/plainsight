@@ -194,7 +194,12 @@ export function buildAskHandler(options: AskHandlerOptions = {}) {
         input: { contextPayload: spec },
       });
 
-      const { runSqlQuery } = await import('./query');
+      // Use a variable path so the bundler (ncc/webpack) cannot statically trace
+      // this import back to @duckdb/node-api and bundle the native binary.
+      // At runtime on Vercel the string resolves to './query' as expected.
+      const queryModPath: string = './query';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { runSqlQuery } = await import(queryModPath as any);
       const result = await runSqlQuery(spec);
       // Inject the shared traceId
       (result as Record<string, unknown>).traceId = traceId;

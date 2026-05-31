@@ -182,12 +182,13 @@ export function Report({ response, query = '', onRerunSpec }: ReportProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: query, explain: true }),
       });
+      if (!res.ok) return; // silently skip if server error
       const data = (await res.json()) as AskResponse;
       if (data.kind === 'spec') {
         setNarrative(data.interpretation);
       }
     } catch {
-      // ignore
+      // ignore — explain is optional
     } finally {
       setExplainLoading(false);
     }
@@ -202,6 +203,16 @@ export function Report({ response, query = '', onRerunSpec }: ReportProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: q }),
         });
+        if (!res.ok) {
+          const fallback: AskResponse = {
+            kind: 'clarify',
+            chips: [{
+              label: "Live AI isn't available on this deployment yet — set a free GEMINI_API_KEY in the Vercel env to enable natural-language questions. Everything in the dashboard already works without it.",
+            }],
+          };
+          useStore.getState().setAskResult(fallback);
+          return;
+        }
         const data = (await res.json()) as AskResponse;
         useStore.getState().setAskResult(data);
       } catch {

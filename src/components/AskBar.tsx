@@ -40,12 +40,32 @@ export function AskBar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: q }),
       });
-      const data = (await res.json()) as AskResponse;
+      let data: AskResponse;
+      if (!res.ok) {
+        // Server error (5xx/4xx) — show graceful message instead of crashing
+        data = {
+          kind: 'clarify',
+          chips: [{
+            label: "Live AI isn't available on this deployment yet — set a free GEMINI_API_KEY in the Vercel env to enable natural-language questions. Everything in the dashboard already works without it.",
+          }],
+        };
+      } else {
+        data = (await res.json()) as AskResponse;
+      }
       // Route result to Report view via store
       setAskResult(data);
       setActiveTab('ask');
     } catch (err) {
       console.error('[AskBar] error:', err);
+      // Network or JSON parse failure — show graceful message
+      const fallback: AskResponse = {
+        kind: 'clarify',
+        chips: [{
+          label: "Live AI isn't available on this deployment yet — set a free GEMINI_API_KEY in the Vercel env to enable natural-language questions. Everything in the dashboard already works without it.",
+        }],
+      };
+      setAskResult(fallback);
+      setActiveTab('ask');
     } finally {
       setLoading(false);
     }
