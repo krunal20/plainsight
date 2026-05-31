@@ -1,3 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-lead: #ef6a1e;
+  --color-sage: #8a9b4e;
+  --color-gold: #f3ad36;
+  --color-brick: #b23a26;
+  --color-paper: #f4f2ec;
+  --color-card: #ffffff;
+  --color-ink: #1b1b18;
+  --color-line: #e9e5da;
+  --color-muted: #8c887f;
+  --font-sans: 'Barlow', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

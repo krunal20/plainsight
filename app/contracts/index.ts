@@ -65,3 +65,9 @@ export interface Dimensions { agency: DimItem[]; category: DimItem[]; subcategor
 
 export type ValidationResult = { ok: true; spec: QuerySpec } | { ok: false; error: ValidationError };
 export interface GuardResult { ok: boolean; cleaned: string; dropped: string[] } // numberGuard return
+
+export interface LogApi {
+  subscribe(cb: (e: AIEvent) => void): () => void; // returns unsubscribe
+  append(e: AIEvent): void;
+  all(): AIEvent[];
+}
