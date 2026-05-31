@@ -275,7 +275,13 @@ export default async function handler(req: Req, res: Res) {
     const response = await handleAsk({ text: body.text, explain: body.explain });
     res.status(200).json(response);
   } catch (e: unknown) {
+    // Graceful, never a 500: the deployment may not have GEMINI_API_KEY set.
+    // The dashboard works fully without live AI; Ask shows a readable message.
     const msg = e instanceof Error ? e.message : String(e);
-    res.status(500).json({ error: { message: msg } });
+    const label = !process.env.GEMINI_API_KEY
+      ? "Live AI isn't configured on this deployment — set GEMINI_API_KEY (free, from Google AI Studio) to ask in natural language. Everything in the dashboard below already works without it."
+      : `Couldn't answer that one (${msg}). Try rephrasing, or explore the dashboard.`;
+    const graceful: AskResponse = { kind: "clarify", chips: [{ label }] };
+    res.status(200).json(graceful);
   }
 }
