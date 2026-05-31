@@ -2,23 +2,38 @@ import type { QuerySpec } from '../../../contracts';
 
 // ---------- column maps ----------
 
+/**
+ * Maps Dimension values to SQL column names in the `facts` table.
+ * The facts table schema: agency, category, subcategory, vendorId, fy, month, amount
+ */
 const DIM_COL: Record<string, string> = {
-  agency: 'agency',
-  category: 'category',
+  agency:      'agency',
+  category:    'category',
   subcategory: 'subcategory',
-  vendor: 'vendor_name',
-  fy: 'fy',
-  month: 'cal_month',
-};
-
-const AMOUNT_COL: Record<string, string> = {
-  net: 'net',
-  gross: 'gross',
+  vendor:      'vendorId',
+  fy:          'fy',
+  month:       'month',
 };
 
 // ---------- safe string literal helper ----------
 // Escapes single quotes by doubling them (SQL-standard, DuckDB-compatible).
 const sqlStr = (v: string): string => `'${String(v).replace(/'/g, "''")}'`;
+
+// ---------- net/gross amount expression ----------
+
+/**
+ * net  = all rows (SUM of amount with no sign filter)
+ * gross = only positive amounts (payments out, no credits)
+ */
+function amountExpr(netGross: 'net' | 'gross'): string {
+  return netGross === 'gross'
+    ? 'CASE WHEN amount > 0 THEN amount ELSE 0 END'
+    : 'amount';
+}
+
+function sumExpr(netGross: 'net' | 'gross'): string {
+  return `SUM(${amountExpr(netGross)})`;
+}
 
 // ---------- filter clause builder ----------
 
@@ -38,39 +53,54 @@ function buildWhere(filters: QuerySpec['filters']): string {
     clauses.push(`subcategory IN (${filters.subcategory.map(sqlStr).join(', ')})`);
   }
   if (filters.vendorIds?.length) {
-    clauses.push(`vendor_id IN (${filters.vendorIds.map(sqlStr).join(', ')})`);
+    clauses.push(`vendorId IN (${filters.vendorIds.map(sqlStr).join(', ')})`);
   }
   if (filters.monthRange) {
-    clauses.push(`cal_month BETWEEN ${filters.monthRange[0]} AND ${filters.monthRange[1]}`);
+    clauses.push(`month BETWEEN ${filters.monthRange[0]} AND ${filters.monthRange[1]}`);
   }
 
   return clauses.length ? `WHERE ${clauses.join('\n  AND ')}` : '';
 }
 
-// ---------- aggregate expression ----------
+// ---------- ORDER BY helper ----------
+
+function buildOrder(spec: QuerySpec): string {
+  if (!spec.sort) return '';
+  const col = spec.sort.by === 'measure' ? 'value' : DIM_COL[spec.groupBy ?? 'agency'];
+  return `ORDER BY ${col} ${spec.sort.dir.toUpperCase()}`;
+}
+
+// ---------- aggregate expression (for grouped queries) ----------
 
 function aggExpr(spec: QuerySpec): string {
-  const col = AMOUNT_COL[spec.netGross];
+  const ng = spec.netGross;
   switch (spec.agg) {
-    case 'sum':            return `SUM(${col})`;
-    case 'avg':            return `AVG(${col})`;
+    case 'sum':            return sumExpr(ng);
+    case 'avg':            return `AVG(${amountExpr(ng)})`;
     case 'count':          return `COUNT(*)`;
-    case 'distinct_count': return `COUNT(DISTINCT vendor_id)`;
-    case 'share':          return `SUM(${col})`;   // numerator; window total added below
-    case 'yoy_delta':      return `SUM(${col})`;   // pivot handled separately
-    default:               return `SUM(${col})`;
+    case 'distinct_count': return `COUNT(DISTINCT vendorId)`;
+    case 'share':          return sumExpr(ng);   // numerator; window total added separately
+    case 'yoy_delta':      return sumExpr(ng);   // pivot handled separately
+    default:               return sumExpr(ng);
   }
 }
 
 // ---------- main entry point ----------
 
+/**
+ * Pure function: maps a QuerySpec to a deterministic SQL string.
+ * Operates against `facts` table (or the provided alias).
+ *
+ * Used for:
+ *   - DuckDB execution in /api/query
+ *   - "Show the SQL" display in the UI
+ */
 export function specToSql(spec: QuerySpec, table = 'facts'): string {
   const where = buildWhere(spec.filters);
-  const agg   = aggExpr(spec);
-  const col   = AMOUNT_COL[spec.netGross];
 
   // ── Scalar KPI ───────────────────────────────────────────────────────────
   if (!spec.groupBy && spec.agg !== 'yoy_delta' && spec.agg !== 'share') {
+    const agg = aggExpr(spec);
     return [
       `SELECT ${agg} AS value`,
       `FROM ${table}`,
@@ -80,10 +110,11 @@ export function specToSql(spec: QuerySpec, table = 'facts'): string {
 
   // ── Share of total ───────────────────────────────────────────────────────
   if (spec.agg === 'share') {
+    const agg = aggExpr(spec);
     const groupCol = spec.groupBy ? DIM_COL[spec.groupBy] : null;
     const selectDim = groupCol ? `${groupCol},\n  ` : '';
     const groupByClause = groupCol ? `GROUP BY ${groupCol}` : '';
-    const windowTotal = `SUM(SUM(${col})) OVER ()`;
+    const windowTotal = `SUM(${agg}) OVER ()`;
     const orderClause = buildOrder(spec);
     const limitClause = spec.topN ? `LIMIT ${spec.topN}` : '';
 
@@ -101,34 +132,37 @@ export function specToSql(spec: QuerySpec, table = 'facts'): string {
 
   // ── YoY delta ────────────────────────────────────────────────────────────
   if (spec.agg === 'yoy_delta') {
-    const groupCol = spec.groupBy ? DIM_COL[spec.groupBy] : null;
-    const pivotDim = groupCol ?? 'agency';
+    const groupCol = spec.groupBy ? DIM_COL[spec.groupBy] : 'agency';
     const mode = spec.mode ?? 'abs';
+    const amtExpr = amountExpr(spec.netGross);
+    const fy23 = `SUM(CASE WHEN fy = 2023 THEN ${amtExpr} ELSE 0 END)`;
+    const fy22 = `SUM(CASE WHEN fy = 2022 THEN ${amtExpr} ELSE 0 END)`;
     const deltaExpr = mode === 'pct'
-      ? `ROUND((SUM(CASE WHEN fy = 2023 THEN ${col} ELSE 0 END) - SUM(CASE WHEN fy = 2022 THEN ${col} ELSE 0 END)) * 100.0 / NULLIF(SUM(CASE WHEN fy = 2022 THEN ${col} ELSE 0 END), 0), 4)`
-      : `SUM(CASE WHEN fy = 2023 THEN ${col} ELSE 0 END) - SUM(CASE WHEN fy = 2022 THEN ${col} ELSE 0 END)`;
+      ? `ROUND((${fy23} - ${fy22}) * 100.0 / NULLIF(${fy22}, 0), 4)`
+      : `${fy23} - ${fy22}`;
 
     return [
-      `SELECT ${pivotDim},`,
+      `SELECT ${groupCol},`,
       `  ${deltaExpr} AS value`,
       `FROM ${table}`,
       where,
-      `GROUP BY ${pivotDim}`,
+      `GROUP BY ${groupCol}`,
       buildOrder(spec),
       spec.topN ? `LIMIT ${spec.topN}` : '',
     ].filter(Boolean).join('\n');
   }
 
-  // ── Compare (pivot two values side by side) ───────────────────────────────
+  // ── Compare (pivot two values side by side) ──────────────────────────────
   if (spec.compare) {
     const { dimension, a, b } = spec.compare;
     const dimCol = DIM_COL[dimension];
     const groupCol = spec.groupBy ? DIM_COL[spec.groupBy] : 'agency';
+    const amtExpr = amountExpr(spec.netGross);
 
     return [
       `SELECT ${groupCol},`,
-      `  SUM(CASE WHEN ${dimCol} = ${sqlStr(a)} THEN ${col} ELSE 0 END) AS a_value,`,
-      `  SUM(CASE WHEN ${dimCol} = ${sqlStr(b)} THEN ${col} ELSE 0 END) AS b_value`,
+      `  SUM(CASE WHEN ${dimCol} = ${sqlStr(a)} THEN ${amtExpr} ELSE 0 END) AS a_value,`,
+      `  SUM(CASE WHEN ${dimCol} = ${sqlStr(b)} THEN ${amtExpr} ELSE 0 END) AS b_value`,
       `FROM ${table}`,
       where,
       `GROUP BY ${groupCol}`,
@@ -139,6 +173,7 @@ export function specToSql(spec: QuerySpec, table = 'facts'): string {
 
   // ── Grouped (rank / trend / breakdown) ───────────────────────────────────
   const groupCol = DIM_COL[spec.groupBy!];
+  const agg = aggExpr(spec);
 
   return [
     `SELECT ${groupCol},`,
@@ -149,10 +184,4 @@ export function specToSql(spec: QuerySpec, table = 'facts'): string {
     buildOrder(spec),
     spec.topN ? `LIMIT ${spec.topN}` : '',
   ].filter(Boolean).join('\n');
-}
-
-function buildOrder(spec: QuerySpec): string {
-  if (!spec.sort) return '';
-  const col = spec.sort.by === 'measure' ? 'value' : DIM_COL[spec.groupBy ?? 'agency'];
-  return `ORDER BY ${col} ${spec.sort.dir.toUpperCase()}`;
 }
