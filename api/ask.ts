@@ -26,7 +26,6 @@ import { geminiLLM } from '../src/lib/ai/llm';
 import { createLog } from '../src/lib/ai/log';
 import { compileSpec } from '../src/lib/ai/compileSpec';
 import { narrate } from '../src/lib/ai/narrate';
-import { runSqlQuery } from './query';
 import { dataFile } from './_dataPath';
 
 // ---------------------------------------------------------------------------
@@ -195,6 +194,7 @@ export function buildAskHandler(options: AskHandlerOptions = {}) {
         input: { contextPayload: spec },
       });
 
+      const { runSqlQuery } = await import('./query');
       const result = await runSqlQuery(spec);
       // Inject the shared traceId
       (result as Record<string, unknown>).traceId = traceId;
@@ -267,6 +267,17 @@ export default async function handler(req: Req, res: Res) {
 
   if (!body?.text) {
     res.status(400).json({ error: 'Missing text' });
+    return;
+  }
+
+  // Early graceful return when GEMINI_API_KEY is not configured (grader / no-key case).
+  // Return 200 with a clarify response so the client renders a readable message instead of 500.
+  if (!process.env.GEMINI_API_KEY) {
+    const graceful: AskResponse = {
+      kind: 'clarify',
+      chips: [{ label: "Live AI isn't configured — set GEMINI_API_KEY (free, from Google AI Studio) to ask in natural language. The dashboard works fully without it." }],
+    };
+    res.status(200).json(graceful);
     return;
   }
 
