@@ -9,9 +9,13 @@
  */
 
 import type { QuerySpec, QueryResult, ValidationError } from '../contracts';
-import { specToSql } from '../src/lib/query/specToSql';
-import { validateSpec } from '../src/lib/query/validateSpec';
 import { dataFile } from './_dataPath';
+
+// package.json has "type":"module"; Vercel compiles api/*.ts to CommonJS, so a
+// STATIC import of the ESM-compiled src/lib/*.js throws ERR_REQUIRE_ESM at load.
+// Load them DYNAMICALLY (works for ESM from CJS).
+async function _specToSql() { return (await import('../src/lib/query/specToSql')).specToSql; }
+async function _validateSpec() { return (await import('../src/lib/query/validateSpec')).validateSpec; }
 
 // ---------------------------------------------------------------------------
 // DuckDB singleton (module-level — reused across requests in the same process)
@@ -49,6 +53,7 @@ export async function runSqlQuery(spec: QuerySpec): Promise<QueryResult> {
   // Resolve parquet path robustly (fix #2: serverless fs paths).
   // Use forward slashes so the DuckDB SQL string is portable (Windows paths break in SQL).
   const pPath = dataFile('facts.parquet').replace(/\\/g, '/');
+  const specToSql = await _specToSql();
   const sql = specToSql(spec, `read_parquet('${pPath}')`);
 
   const conn = await getConnection();
@@ -175,6 +180,7 @@ export default async function handler(req: Req, res: Res) {
   const dims = JSON.parse(readFileSync(dataFile('dimensions.json'), 'utf8'));
 
   // Validate spec
+  const validateSpec = await _validateSpec();
   const validation = validateSpec(body.spec, dims);
   if (!validation.ok) {
     const err: ValidationError = validation.error;

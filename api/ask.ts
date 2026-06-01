@@ -153,6 +153,7 @@ export function buildAskHandler(options: AskHandlerOptions = {}) {
   }): Promise<AskResponse> {
     try {
       const traceId = `ask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const { geminiLLM, createLog, compileSpec, narrate } = await _ai();
       const log = options.log ?? createLog();
       const llm = options.llm ?? geminiLLM();
 
